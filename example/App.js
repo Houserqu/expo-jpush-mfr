@@ -1,6 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, View, TouchableHighlight} from 'react-native';
-import JPush from 'jpush-react-native';
+import JPush from 'expo-jpush-mfr';
 
 const styles = StyleSheet.create({
   container: {
