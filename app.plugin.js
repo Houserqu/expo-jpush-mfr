@@ -1,4 +1,7 @@
-const { withAndroidManifest, withAppBuildGradle, withSettingsGradle, withInfoPlist, withAppDelegate } = require('@expo/config-plugins');
+const { withAndroidManifest, withAppBuildGradle, withSettingsGradle, withInfoPlist, withAppDelegate, withProjectBuildGradle, withDangerousMod, withGradleProperties } = require('@expo/config-plugins');
+const fs = require('fs');
+const { console } = require('inspector');
+const path = require('path');
 
 const withJpush = (config, { appKey, channel, mfr }) => {
   config = withAndroidManifest(config, async (config) => {
@@ -17,6 +20,25 @@ const withJpush = (config, { appKey, channel, mfr }) => {
     })
     return config;
   });
+
+  config = withProjectBuildGradle(config, async (config) => {
+    const lines = config.modResults.contents.split('\n')
+    const newLines = []
+    lines.forEach(line => {
+      if (line.includes('mavenCentral')) {
+        newLines.push(`        maven {url 'https://developer.huawei.com/repo/'}`)
+      } if (line.includes('com.android.tools.build:gradle')) {
+        newLines.push(`        classpath('com.android.tools.build:gradle:7.0.2')`)
+        newLines.push(`        classpath('com.huawei.agconnect:agcp:1.9.1.301')`)
+      } else {
+        newLines.push(line)
+      }
+    })
+
+    config.modResults.contents = newLines.join('\n')
+
+    return config;
+  })
 
   config = withAppBuildGradle(config, async (config) => {
     const lines = config.modResults.contents.split('\n')
@@ -48,6 +70,8 @@ const withJpush = (config, { appKey, channel, mfr }) => {
       }
     })
 
+    newLines.push(`apply plugin: 'com.huawei.agconnect'`)
+
     config.modResults.contents = newLines.join('\n')
 
     return config;
@@ -68,14 +92,14 @@ const withJpush = (config, { appKey, channel, mfr }) => {
   config = withInfoPlist(config, config => {
     // 添加通知权限
     const infoPlist = config.ios.infoPlist || {}
-    infoPlist["UIBackgroundModes"] = ["fetch","remote-notification"]
+    infoPlist["UIBackgroundModes"] = ["fetch", "remote-notification"]
     config.ios.infoPlist = infoPlist
     return config
   })
 
   config = withAppDelegate(config, config => {
     let contents = config.modResults.contents || '';
-    
+
     // 替换默认获取 deviceToken 代码
     contents = contents.replace(
       `return [super application:application didRegisterForRemoteNotificationsWithDeviceToken:deviceToken];`,
@@ -89,7 +113,7 @@ const withJpush = (config, { appKey, channel, mfr }) => {
   [JPUSHService handleRemoteNotification:userInfo];
   [[NSNotificationCenter defaultCenter] postNotificationName:J_APNS_NOTIFICATION_ARRIVED_EVENT object:userInfo];
   completionHandler(UIBackgroundFetchResultNewData);`
-  )
+    )
 
     // 添加推送初始化代码
     const lines = contents.split('\n')
@@ -116,7 +140,7 @@ const withJpush = (config, { appKey, channel, mfr }) => {
 @end
 // 添加内容end
           `)
-      } else if(line.includes("self.initialProps = @{};")) {
+      } else if (line.includes("self.initialProps = @{};")) {
         newLines.push(line)
         newLines.push(`
    // 添加内容start APNS
@@ -187,8 +211,39 @@ const withJpush = (config, { appKey, channel, mfr }) => {
     })
 
     config.modResults.contents = newLines.join('\n')
+
     return config
   })
+
+  config = withGradleProperties(config, config => {
+    config.modResults.push(
+      {
+        type: 'property',
+        key: "apmsInstrumentationEnabled",
+        value: "false"
+      }
+    )
+    return config
+  })
+
+  // 复制华为推送配置文件
+  if (mfr.HUAWEI_AGCONNECT_SERVICES_FILE) {
+    withDangerousMod(config, [
+      'android',
+      async config => {
+        fs.copyFile(
+          path.join(config._internal.projectRoot, mfr.HUAWEI_AGCONNECT_SERVICES_FILE),
+          path.join(config._internal.projectRoot, 'android/app/agconnect-services.json'),
+          (err) => {
+            if (err) {
+              console.log("复制华为推送配置文件失败：", err)
+            }
+          }
+        )
+        return config;
+      },
+    ]);
+  }
 
   return config;
 };

@@ -33,7 +33,8 @@ npm install jcore-react-native --save
       "OPPO_APPKEY": "厂商配置参数",    // 不需要 OP-前缀
       "OPPO_APPID": "厂商配置参数",     // 不需要 OP-前缀
       "OPPO_APPSECRET": "厂商配置参数", // 不需要 OP-前缀
-      "HONOR_APPID": "厂商配置参数"
+      "HONOR_APPID": "厂商配置参数",
+      "HUAWEI_AGCONNECT_SERVICES_FILE": "./agconnect-services.json" // 必须在项目目录下
     }
   }
 ]
