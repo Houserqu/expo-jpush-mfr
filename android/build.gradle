@@ -25,8 +25,7 @@ android {
 }
 
 dependencies {
-    api fileTree(dir: 'libs', include: ['*.jar'])
-    compileOnly fileTree(dir: 'libs', include: ["*.aar"])
+    implementation fileTree(include: ['*.jar','*.aar'], dir: 'libs')
 
     implementation 'com.facebook.react:react-native:+'
 
